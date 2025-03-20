@@ -1,11 +1,10 @@
-[![Build status](https://ci.appveyor.com/api/projects/status/yj6pvlhnjpfrdrqn?svg=true)](https://ci.appveyor.com/project/LokiMidgard/fluent-generator)
 
 # Fluent.Generator
 This tool generates design classes of ftl files. It creates boilerplate code to use with [Fluent.Net](https://github.com/blushingpenguin/Fluent.Net)
 
 ## Getting Started
 
-Install the [nuget package](https://www.nuget.org/packages/SourceGenerator.Fluent/), add an FTL file to your project, set it as additonal file.
+Install the [nuget package](https://www.nuget.org/packages/SourceGenerator.Fluent), add an FTL file to your project, set it as additonal file.
 
 ```xml
 <ItemGroup>

@@ -30,8 +30,8 @@
 		</Description>
 
 		<RepositoryType>git</RepositoryType>
-		<RepositoryUrl>https://github.com/LokiMidgard/Fluent.Generator.git</RepositoryUrl>
-		<PackageProjectUrl>https://github.com/LokiMidgard/Fluent.Generator?tab=readme-ov-file#fluentgenerator</PackageProjectUrl>
+		<RepositoryUrl>https://github.com/LokiMidgard/FluentGenerator.git</RepositoryUrl>
+		<PackageProjectUrl>https://github.com/LokiMidgard/FluentGenerator?tab=readme-ov-file#fluentgenerator</PackageProjectUrl>
 	</PropertyGroup>
 
 	<ItemGroup>
