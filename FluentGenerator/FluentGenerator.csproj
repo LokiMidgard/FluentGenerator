@@ -1,0 +1,69 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<Version>0.2.0</Version>
+
+		<TargetFramework>netstandard2.0</TargetFramework>
+		<LangVersion>13.0</LangVersion>
+		<Nullable>enable</Nullable>
+
+
+		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+
+		<IsRoslynComponent>true</IsRoslynComponent>
+		<IncludeBuildOutput>false</IncludeBuildOutput>
+		<DevelopmentDependency>true</DevelopmentDependency>
+		<EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+		<SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
+	</PropertyGroup>
+
+	<PropertyGroup>
+		<PackageId>SourceGenerator.Fluent</PackageId>
+		<Authors>Patrick Kranz</Authors>
+		<PackageLicenseExpression>Unlicense</PackageLicenseExpression>
+		<PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+
+		<PackageTags>fluent;generator</PackageTags>
+
+		<PackageReadmeFile>readme.md</PackageReadmeFile>
+		<Description>
+			A helper Source Generator, to generate a strongly typed Wraper for Fluent files.
+		</Description>
+
+		<RepositoryType>git</RepositoryType>
+		<RepositoryUrl>https://github.com/LokiMidgard/Fluent.Generator.git</RepositoryUrl>
+		<PackageProjectUrl>https://github.com/LokiMidgard/Fluent.Generator?tab=readme-ov-file#fluentgenerator</PackageProjectUrl>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<None Include="../.editorconfig" Link=".editorconfig" />
+		<None Include="../readme.md" Pack="true" PackagePath="\" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.4.0" PrivateAssets="all" />
+
+		<PackageReference Include="SourceGenerator.Helper.CopyCode" Version="0.0.2">
+			<PrivateAssets>all</PrivateAssets>
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
+		</PackageReference>
+	</ItemGroup>
+
+	<ItemGroup>
+		<!-- Generator dependencies -->
+		<PackageReference Include="Fluent.Net" Version="1.0.63" GeneratePathProperty="true"/>
+	</ItemGroup>
+
+	<PropertyGroup>
+		<GetTargetPathDependsOn>$(GetTargetPathDependsOn);GetDependencyTargetPaths</GetTargetPathDependsOn>
+	</PropertyGroup>
+
+	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'" />
+
+	<Target Name="GetDependencyTargetPaths">
+		<ItemGroup>
+			<None Include="$(OutputPath)\$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+			<TargetPathWithTargetPlatformMoniker Include="$(PKGFluent_Net)\lib\netstandard2.0\Fluent.Net.dll" IncludeRuntimeDependency="false" />
+			<None Include="$(PKGFluent_Net)\lib\netstandard2.0\*.dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+		</ItemGroup>
+	</Target>
+</Project>
