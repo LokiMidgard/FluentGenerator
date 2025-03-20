@@ -36,8 +36,6 @@ internal class MissingConfigurationException : Exception {
 public class ConfiguationvGeneratord : ISourceGenerator {
 
 
-    private static Regex ftlRegex = new(@"\.\w\w(-\w\w)?\.ftl$");
-
     public void Initialize(GeneratorInitializationContext context) {
         // Register the attribute source
         //context.RegisterForPostInitialization((i) => {
@@ -50,7 +48,7 @@ public class ConfiguationvGeneratord : ISourceGenerator {
 
     public void Execute(GeneratorExecutionContext context) {
 
-        var filesToConsume = context.AdditionalFiles.Where(x => ftlRegex.IsMatch(x.Path)).ToList();
+        var filesToConsume = context.AdditionalFiles.Where(x => Path.GetExtension(x.Path)== ".ftl").ToList();
 
         try {
             // get Project dir
