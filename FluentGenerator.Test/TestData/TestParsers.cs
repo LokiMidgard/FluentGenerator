@@ -20,7 +20,7 @@ internal class ConfigDumy {
 
     public T GetValue<T>(string key) {
 
-        var xx = Fluent.test.GetContext().ReviewEmeritusSubject["", "", ""];
+        var xx = Fluent.test.GetContext().Duration[AkkusativDativ.akkusativ,2,2,1];
 
         if (Data.TryGetValue(key, out var value)) {
             return (T)value;

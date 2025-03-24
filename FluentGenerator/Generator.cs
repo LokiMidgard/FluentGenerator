@@ -36,6 +36,8 @@ internal class MissingConfigurationException : Exception {
 public class ConfiguationvGeneratord : ISourceGenerator {
 
 
+    private readonly Regex variableFormat = new Regex(@"^\$(?<name>[^ ]+)\s+(\((?<type>[^)]+)\))?\s*-\s*(?<rest>.*)$");
+
     public void Initialize(GeneratorInitializationContext context) {
         // Register the attribute source
         //context.RegisterForPostInitialization((i) => {
@@ -48,7 +50,7 @@ public class ConfiguationvGeneratord : ISourceGenerator {
 
     public void Execute(GeneratorExecutionContext context) {
 
-        var filesToConsume = context.AdditionalFiles.Where(x => Path.GetExtension(x.Path)== ".ftl").ToList();
+        var filesToConsume = context.AdditionalFiles.Where(x => Path.GetExtension(x.Path) == ".ftl").ToList();
 
         try {
             // get Project dir
@@ -77,7 +79,7 @@ public class ConfiguationvGeneratord : ISourceGenerator {
     }
 
 
-    public static string Generat(string rootNamespace, IList<AdditionalText> ftlFiles, CancellationToken cancellationToken) {
+    public string Generat(string rootNamespace, IList<AdditionalText> ftlFiles, CancellationToken cancellationToken) {
         var stringBuilder = new StringBuilder();
 
         stringBuilder.Append(@"using System.Globalization;
@@ -92,6 +94,10 @@ using Fluent.Net;
         stringBuilder.AppendLine($"// handling {ftlFiles.Count} files");
         stringBuilder.AppendLine();
 
+        Dictionary<string, string> additonalTypes = new();
+
+
+
         foreach (var f in ftlFiles) {
             stringBuilder.AppendLine();
             stringBuilder.AppendLine($"// handling {f.Path}");
@@ -101,13 +107,19 @@ using Fluent.Net;
             var parent = rootNamespace;// + "." + Path.GetDirectoryName(f).Replace('\\', '.');
             parent = parent.TrimEnd('.');
 
-            Test(stringBuilder, name, parent, text.ToString());
+            Test(stringBuilder, name, parent, text.ToString(), additonalTypes);
+        }
+
+        foreach (var item in additonalTypes.Values) {
+            stringBuilder.AppendLine();
+            stringBuilder.AppendLine(item);
+            stringBuilder.AppendLine();
         }
 
         return stringBuilder.ToString();
     }
 
-    public static void Test(StringBuilder stringBuilder, string name, string @namespace, string ftl) {
+    public void Test(StringBuilder stringBuilder, string name, string @namespace, string ftl, Dictionary<string, string> additonalTypes) {
         var parser = new Fluent.Net.Parser(false);
         using StringReader reader = new StringReader(ftl);
         var result = parser.Parse(reader);
@@ -181,8 +193,14 @@ using Fluent.Net;
 """);
 
 
-        var enumerable = result.Body.OfType<Message>().ToArray();
-        foreach (var message in enumerable) {
+        var enumerable = result.Body.OfType<MessageTermBase>().ToDictionary(x => x.Id.Name);
+
+        stringBuilder.AppendLine($"// message keys: {string.Join(", ", enumerable.Keys)}");
+
+
+
+
+        foreach (var message in enumerable.Values.OfType<Message>()) {
             var id = message.Id.Name;
             var comment = message.Comment;
             var propName = id.ToCharArray();
@@ -200,9 +218,9 @@ using Fluent.Net;
 
 
 
-            var variables = GetVariables(message.Value).Distinct().ToArray();
+            var variables = GetVariables(message, enumerable, message.Comment?.Content, additonalTypes).Distinct().ToArray();
 
-            var commentData = comment == null ? null as (string comment, (string name, Type type, string comment)[] parameter)? : GenerateDoc(variables, comment.Content);
+            var commentData = comment == null ? null as (string comment, (string name, string comment)[] parameter)? : GenerateDoc(comment.Content);
 
             if (variables.Length > 0) {
 
@@ -218,7 +236,7 @@ using Fluent.Net;
         stringBuilder.AppendLine("}\n}");
     }
 
-    private static void WriteComment(StringBuilder stringBuilder, (string comment, (string name, Type type, string comment)[] parameter)? commentData, bool writeParameter) {
+    private void WriteComment(StringBuilder stringBuilder, (string comment, (string name, string comment)[] parameter)? commentData, bool writeParameter) {
         if (commentData?.comment != null) {
             stringBuilder.AppendLine("/// <summary>");
             WritePrefixedLines(commentData.Value.comment);
@@ -256,26 +274,23 @@ using Fluent.Net;
     private static void GetComplexProperty(StringBuilder stringBuilder, string propertyName) {
         stringBuilder.AppendLine($"    public Wrapper.{ToPascalCase(propertyName)}Wrapper {ToPascalCase(propertyName)} => new Wrapper.{ToPascalCase(propertyName)}Wrapper(context);");
     }
-
-    private static (string comment, (string name, Type type, string comment)[] parameter) GenerateDoc(string[] variables, string comment) {
+    ///
+    private (string comment, (string name, string comment)[] parameter) GenerateDoc(string comment) {
         if (String.IsNullOrWhiteSpace(comment))
-            return (null, new (string name, Type type, string comment)[0]);
+            return (null, new (string name, string comment)[0]);
 
-        var data = new List<(string name, Type type, StringBuilder comment)>();
+        var data = new List<(string name, StringBuilder comment)>();
         var normalComment = new StringBuilder();
         if (!string.IsNullOrWhiteSpace(comment)) {
             var lines = comment.Replace("\r\n", "\n").Split('\n');
-            Regex variableFormat = new Regex(@"^\$(?<name>[^ ]+)\s+(\((?<type>[^)]+)\))?\s*-\s*(?<rest>.*)$");
 
             foreach (var l in lines) {
                 var match = variableFormat.Match(l);
                 if (match.Success) {
                     var name = match.Groups["name"].Value;
-                    if (variables.Contains(name)) {
-                        var t = match.Groups["type"];
+                    var t = match.Groups["type"];
 
-                        data.Add((name, GetTypeFromMatch(t), new StringBuilder(match.Groups["rest"].Value)));
-                    }
+                    data.Add((name, new StringBuilder(match.Groups["rest"].Value)));
                 } else if (data.Any()) {
                     data[data.Count - 1].comment.AppendLine(l);
                 } else {
@@ -283,39 +298,51 @@ using Fluent.Net;
                 }
             }
         }
-        return (normalComment.ToString(), data.Select(x => (x.name, x.type, x.comment.ToString())).ToArray());
+        return (normalComment.ToString(), data.Select(x => (x.name, x.comment.ToString())).ToArray());
     }
 
-    private static Type GetTypeFromMatch(Group t) {
-        if (!t.Success)
-            return null;
-        switch (t.Value.ToLower()) {
+    
+    private static (string type, bool toString) GetTypeFromMatch(string t, Dictionary<string, string> additonalTypes) {
+        if (t is null)
+            return default;
+        if (t.Contains("|")) {
+            var enumValues = t.Split('|').Select(x => x.Trim()).ToArray();
+            var enumName = ToPascalCase(t); // as long as the ordeing is the same, the name will be the same
+
+
+            additonalTypes[enumName] = $"public enum {enumName} {{ {string.Join(", ", enumValues)} }}";
+
+
+            return (enumName, true);
+
+        }
+        switch (t.ToLower()) {
             case "string":
             case "text":
-                return typeof(string);
+                return (typeof(string).FullName, false);
 
             case "number":
-                return typeof(double);
+                return (typeof(double).FullName, false);
 
             case "int":
-                return typeof(int);
+                return (typeof(int).FullName, false);
 
             case "float":
-                return typeof(float);
+                return (typeof(float).FullName, false);
 
             case "double":
-                return typeof(double);
+                return (typeof(double).FullName, false);
 
             case "long":
-                return typeof(long);
+                return (typeof(long).FullName, false);
 
             default:
-                return Type.GetType(t.Value, false) ?? typeof(object);
+                return (Type.GetType(t, false)?.FullName ?? typeof(object).FullName, false);
         }
 
     }
 
-    private static void ComplexMessageStruct(StringBuilder stringBuilder, string messageId, string propertyName, string[] variables, (string comment, (string name, Type type, string comment)[] parameter)? commentData) {
+    private void ComplexMessageStruct(StringBuilder stringBuilder, string messageId, string propertyName, (string name, string type,bool toString)[] variables, (string comment, (string name, string comment)[] parameter)? commentData) {
 
 
         stringBuilder.AppendLine($@"public static partial class Wrapper{{
@@ -330,13 +357,13 @@ public struct {ToPascalCase(propertyName)}Wrapper
         WriteComment(stringBuilder, commentData, true);
         stringBuilder.AppendLine($@"
             public string this[{string.Join(", ", variables.Select(x => {
-            var type = commentData?.parameter.FirstOrDefault(y => x == y.name).type ?? typeof(object);
-            return $"{type.FullName} {ToPascalCase(x)}";
+            var type = x.type ?? typeof(object).FullName;
+            return $"{type} {ToPascalCase(x.name)}";
         }))}]
             {{
                 get
                 {{
-                    return this.messageContext.Format(this.messageContext.GetMessage(""{messageId}""), new Dictionary<string, object>{{{string.Join(", ", variables.Select(x => $@"{{""{x}"", {ToPascalCase(x)}}}"))}}});
+                    return this.messageContext.Format(this.messageContext.GetMessage(""{messageId}""), new Dictionary<string, object>{{{string.Join(", ", variables.Select(x =>x.toString? $@"{{""{x.name}"", {ToPascalCase(x.name)}.ToString()}}" : $@"{{""{x.name}"", {ToPascalCase(x.name)}}}"))}}});
                 }}
             }}
         }}
@@ -371,29 +398,75 @@ public struct {ToPascalCase(propertyName)}Wrapper
     //    return element;
     //}
 
-    private static IEnumerable<string> GetVariables(SyntaxNode value) {
+    private IEnumerable<(string name, string? type, bool toString)> GetVariables(SyntaxNode value, Dictionary<string, MessageTermBase> messages, string? comment, Dictionary<string, string> additonalTypes) {
+
+        var lines = comment?.Replace("\r\n", "\n").Split('\n') ?? [];
+        var knownTypes = lines.Select(l => {
+            var match = variableFormat.Match(l);
+            if (match.Success && match.Groups["type"].Success) {
+                var name = match.Groups["name"].Value;
+                var type = match.Groups["type"].Value;
+                var (typeName, toString) = GetTypeFromMatch(type, additonalTypes);
+                return (name, typeName,toString);
+            }
+            return null as (string name, string type, bool toString)?;
+        })
+            .Where(x => x.HasValue)
+            .ToDictionary(x => x.Value.name, x => (x.Value.type, x.Value.toString));
+        return GetVariables(value, messages, knownTypes, additonalTypes);
+    }
+    private IEnumerable<(string name, string? type, bool toString)> GetVariables(SyntaxNode value, Dictionary<string, MessageTermBase> messages, Dictionary<string, (string typeName, bool toString)> knownTypes, Dictionary<string, string> additonalTypes) {
         switch (value) {
+            case Fluent.Net.Ast.MessageTermBase messageTerm:
+
+
+
+
+
+
+                var variablesOfTerm = GetVariables(messageTerm.Value, messages, messageTerm.Comment?.Content, additonalTypes)
+                    .Select(original => {
+
+                        if (knownTypes.TryGetValue(original.name, out var type)) {
+                            return (original.name, type.typeName,type.toString);
+                        } else {
+                            return original;
+                        }
+                    });
+
+
+                return variablesOfTerm;
             case Pattern pattern:
-                return pattern.Elements.SelectMany(GetVariables);
+                return pattern.Elements.SelectMany(x => GetVariables(x, messages, knownTypes, additonalTypes));
             case Placeable placeable:
-                return GetVariables(placeable.Expression);
+                return GetVariables(placeable.Expression, messages, knownTypes, additonalTypes);
             case VariableReference variableReference:
-                return new[] { variableReference.Id.Name };
+                if (knownTypes.TryGetValue(variableReference.Id.Name, out var type)) {
+                    return [(variableReference.Id.Name, type.typeName,type.toString)];
+                } else {
+                    return [(variableReference.Id.Name, null,false)];
+                }
             case SelectExpression selectExpression:
-                return GetVariables(selectExpression.Selector)
-                    .Concat(selectExpression.Variants.SelectMany(x => GetVariables(x.Value)));
+                return GetVariables(selectExpression.Selector, messages, knownTypes, additonalTypes)
+                    .Concat(selectExpression.Variants.SelectMany(x => GetVariables(x.Value, messages, knownTypes, additonalTypes)));
+            case Fluent.Net.Ast.MessageTermReference mesageTermReference:
+                var original = messages[mesageTermReference.Id.Name];
+                var variables = GetVariables(original.Value, messages, original.Comment?.Content, additonalTypes);
+                return variables;
+            //case Fluent.Net.Ast.MessageReference messageReference:
+            //    return GetVariables(messages[messageReference.Id.Name].Value, messages);
             case Fluent.Net.Ast.CallExpression callExpression:
-                return callExpression.Named.Select<NamedArgument, SyntaxNode>(x => x.Value).Concat(callExpression.Positional).SelectMany(GetVariables);
+                return callExpression.Named.Select<NamedArgument, SyntaxNode>(x => x.Value).Concat(callExpression.Positional).SelectMany(x => GetVariables(x, messages, knownTypes, additonalTypes));
 
             default:
-                return Enumerable.Empty<string>();
+                return [];
         }
     }
 
     private static string ToPascalCase(string name) {
         // find the words in current string, and capitalize the first letter of each word
         // split can be done by space, hyphen, underscore, or period
-        return string.Join("", name.Split(new char[] { ' ', '-', '_', '.' }, StringSplitOptions.RemoveEmptyEntries).Select(word => char.ToUpper(word[0]) + word.Substring(1)));
+        return string.Join("", name.Split(new char[] { ' ', '-', '_', '.', '|' }, StringSplitOptions.RemoveEmptyEntries).Select(word => char.ToUpper(word[0]) + word.Substring(1)));
     }
 
 
