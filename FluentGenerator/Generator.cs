@@ -340,6 +340,9 @@ using Fluent.Net;
             case "boolean":
                 return (typeof(bool).FullName, true);
 
+            case "date":
+                return (typeof(DateTime).FullName, false);
+
             default:
                 return (t, false);
         }
