@@ -301,7 +301,7 @@ using Fluent.Net;
         return (normalComment.ToString(), data.Select(x => (x.name, x.comment.ToString())).ToArray());
     }
 
-    
+
     private static (string type, bool toString) GetTypeFromMatch(string t, Dictionary<string, string> additonalTypes) {
         if (t is null)
             return default;
@@ -336,13 +336,17 @@ using Fluent.Net;
             case "long":
                 return (typeof(long).FullName, false);
 
+            case "bool":
+            case "boolean":
+                return (typeof(bool).FullName, true);
+
             default:
-                return (Type.GetType(t, false)?.FullName ?? typeof(object).FullName, false);
+                return (t, false);
         }
 
     }
 
-    private void ComplexMessageStruct(StringBuilder stringBuilder, string messageId, string propertyName, (string name, string type,bool toString)[] variables, (string comment, (string name, string comment)[] parameter)? commentData) {
+    private void ComplexMessageStruct(StringBuilder stringBuilder, string messageId, string propertyName, (string name, string type, bool toString)[] variables, (string comment, (string name, string comment)[] parameter)? commentData) {
 
 
         stringBuilder.AppendLine($@"public static partial class Wrapper{{
@@ -363,7 +367,7 @@ public struct {ToPascalCase(propertyName)}Wrapper
             {{
                 get
                 {{
-                    return this.messageContext.Format(this.messageContext.GetMessage(""{messageId}""), new Dictionary<string, object>{{{string.Join(", ", variables.Select(x =>x.toString? $@"{{""{x.name}"", {ToPascalCase(x.name)}.ToString()}}" : $@"{{""{x.name}"", {ToPascalCase(x.name)}}}"))}}});
+                    return this.messageContext.Format(this.messageContext.GetMessage(""{messageId}""), new Dictionary<string, object>{{{string.Join(", ", variables.Select(x => x.toString ? $@"{{""{x.name}"", {ToPascalCase(x.name)}.ToString()}}" : $@"{{""{x.name}"", {ToPascalCase(x.name)}}}"))}}});
                 }}
             }}
         }}
@@ -407,7 +411,7 @@ public struct {ToPascalCase(propertyName)}Wrapper
                 var name = match.Groups["name"].Value;
                 var type = match.Groups["type"].Value;
                 var (typeName, toString) = GetTypeFromMatch(type, additonalTypes);
-                return (name, typeName,toString);
+                return (name, typeName, toString);
             }
             return null as (string name, string type, bool toString)?;
         })
@@ -428,7 +432,7 @@ public struct {ToPascalCase(propertyName)}Wrapper
                     .Select(original => {
 
                         if (knownTypes.TryGetValue(original.name, out var type)) {
-                            return (original.name, type.typeName,type.toString);
+                            return (original.name, type.typeName, type.toString);
                         } else {
                             return original;
                         }
@@ -442,9 +446,9 @@ public struct {ToPascalCase(propertyName)}Wrapper
                 return GetVariables(placeable.Expression, messages, knownTypes, additonalTypes);
             case VariableReference variableReference:
                 if (knownTypes.TryGetValue(variableReference.Id.Name, out var type)) {
-                    return [(variableReference.Id.Name, type.typeName,type.toString)];
+                    return [(variableReference.Id.Name, type.typeName, type.toString)];
                 } else {
-                    return [(variableReference.Id.Name, null,false)];
+                    return [(variableReference.Id.Name, null, false)];
                 }
             case SelectExpression selectExpression:
                 return GetVariables(selectExpression.Selector, messages, knownTypes, additonalTypes)
