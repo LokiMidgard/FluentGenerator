@@ -156,7 +156,7 @@ using Fluent.Net;
                 culture = CultureInfo.CurrentUICulture;
 
             var ctx = new MessageContext(culture.Name, options);
-            string correctResurce = null;
+            string? correctResurce = null;
             if(fluentFile is null){
                 correctResurce = FALLBACK;
             }
@@ -179,6 +179,7 @@ using Fluent.Net;
                     throw new FileNotFoundException("Resource not found",fluentFile);
                 currentCulture = currentCulture.Parent;
             }
+            System.Diagnostics.Debug.Assert(correctResurce != null, "correctResurce != null");
 
             FluentResource fluentResource;
             using (var reader = new StringReader(correctResurce))
