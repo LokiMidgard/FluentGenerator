@@ -163,8 +163,9 @@ using Fluent.Net;
             var currentCulture = culture;
             while (correctResurce == null)
             {
+                System.Diagnostics.Debug.Assert(fluentFile != null, "currentCulture != null");
                 var pathWithoutExtension = System.IO.Path.GetFileNameWithoutExtension( fluentFile);
-                if(pathWithoutExtension.EndsWith(currentCulture.Name)){
+                if(pathWithoutExtension?.EndsWith(currentCulture.Name) ?? false){
                     correctResurce = System.IO.File.ReadAllText(fluentFile);
                     break;
                 }
