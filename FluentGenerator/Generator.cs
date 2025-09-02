@@ -342,8 +342,14 @@ using Fluent.Net;
             case "boolean":
                 return (typeof(bool).FullName, true);
 
-            case "date":
+            case "datetime":
                 return (typeof(DateTime).FullName, false);
+
+            case "time":
+                return ("System.TimeOnly", false);
+
+            case "date":
+                return ("System.DateOnly", false);
 
             default:
                 return (t, false);
