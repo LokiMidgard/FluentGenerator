@@ -344,6 +344,32 @@ using Fluent.Net;
 
             case "datetime":
                 return (typeof(DateTime).FullName, null);
+            
+            
+            case "datetimeoffset":
+                additonalTypes[typeof(DateTimeOffset).FullName] = """
+                    public struct DateTimeOffsetConverter : IFluentType {
+                        string IFluentType.Value { get; set; } = "";
+
+                        public readonly DateTimeOffset date;
+                        public DateTimeOffsetConverter(DateTimeOffset date) {
+                            this.date = date;
+                            ((IFluentType)this).Value = date.ToString();
+                        }
+                        string IFluentType.Format(MessageContext ctx) {
+                            return date.ToString(ctx.Culture);
+                        }
+                        bool IFluentType.Match(MessageContext ctx, object obj) {
+                            if (obj is DateTimeOffsetConverter) {
+                                return ((DateTimeOffsetConverter)obj).date == date;
+                            }
+                            return false;
+                        }
+                    }
+                    
+                    """;
+
+                return (typeof(DateTimeOffset).FullName, str => $"new Fluent.DateTimeOffsetConverter({str})");
 
             case "time":
                 additonalTypes["System.TimeOnly"] = """
