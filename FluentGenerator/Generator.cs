@@ -350,7 +350,7 @@ using Fluent.Net;
                     public struct TimeConverter : IFluentType {
                         string IFluentType.Value { get; set; } = "";
 
-                        private TimeOnly time;
+                        public readonly TimeOnly time;
                         public TimeConverter(TimeOnly time) {
                             this.time = time;
                             ((IFluentType)this).Value = time.ToString();
@@ -374,7 +374,7 @@ using Fluent.Net;
                     public struct DateConverter : IFluentType {
                         string IFluentType.Value { get; set; } = "";
 
-                        private DateOnly date;
+                        public readonly DateOnly date;
                         public DateConverter(DateOnly date) {
                             this.date = date;
                             ((IFluentType)this).Value = date.ToString();
