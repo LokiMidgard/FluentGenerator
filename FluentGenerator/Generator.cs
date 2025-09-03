@@ -397,7 +397,7 @@ using Fluent.Net;
                 return ("System.DateOnly", str=>$"new Fluent.DateConverter({str})");
 
             default:
-                return (t, str => $"{str}.ToString()");
+                return (t, str => $"{str} is Fluent.Net.IFluentType ? {str} : {str}.ToString()");
         }
 
     }
