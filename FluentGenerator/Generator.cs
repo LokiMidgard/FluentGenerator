@@ -132,9 +132,9 @@ using Fluent.Net;
         var fallbackValue = quotes + "\n" + ftl + "\n" + quotes;
 
         stringBuilder.AppendLine($$"""
-            namespace {{@namespace}}
+            namespace {{@namespace}};
             
-{
+
     public class {{name}}
     {
         private const string resourceName = "{{@namespace}}.{{name}}";
@@ -235,7 +235,7 @@ using Fluent.Net;
             }
         }
 
-        stringBuilder.AppendLine("}\n}");
+        stringBuilder.AppendLine("}\n");
     }
 
     private void WriteComment(StringBuilder stringBuilder, (string comment, (string name, string comment)[] parameter)? commentData, bool writeParameter) {
