@@ -402,7 +402,7 @@ using Fluent.Net;
 
     }
 
-    private void ComplexMessageStruct(StringBuilder stringBuilder, string messageId, string propertyName, (string name, string type, bool toString)[] variables, (string comment, (string name, string comment)[] parameter)? commentData) {
+    private void ComplexMessageStruct(StringBuilder stringBuilder, string messageId, string propertyName, (string name, string type, Func<string, string>? transform)[] variables, (string comment, (string name, string comment)[] parameter)? commentData) {
 
 
         stringBuilder.AppendLine($@"public static partial class Wrapper{{
@@ -423,7 +423,7 @@ public struct {ToPascalCase(propertyName)}Wrapper
             {{
                 get
                 {{
-                    return this.messageContext.Format(this.messageContext.GetMessage(""{messageId}""), new Dictionary<string, object>{{{string.Join(", ", variables.Select(x => x.toString ? $@"{{""{x.name}"", {ToPascalCase(x.name)}.ToString()}}" : $@"{{""{x.name}"", {ToPascalCase(x.name)}}}"))}}});
+                    return this.messageContext.Format(this.messageContext.GetMessage(""{messageId}""), new Dictionary<string, object>{{{string.Join(", ", variables.Select(x => x.transform!=null ? $@"{{""{x.name}"", {x.transform(ToPascalCase(x.name))}}}" : $@"{{""{x.name}"", {ToPascalCase(x.name)}}}"))}}});
                 }}
             }}
         }}
@@ -458,7 +458,7 @@ public struct {ToPascalCase(propertyName)}Wrapper
     //    return element;
     //}
 
-    private IEnumerable<(string name, string? type, bool toString)> GetVariables(SyntaxNode value, Dictionary<string, MessageTermBase> messages, string? comment, Dictionary<string, string> additonalTypes) {
+    private IEnumerable<(string name, string? type, Func<string, string>? transform)> GetVariables(SyntaxNode value, Dictionary<string, MessageTermBase> messages, string? comment, Dictionary<string, string> additonalTypes) {
 
         var lines = comment?.Replace("\r\n", "\n").Split('\n') ?? [];
         var knownTypes = lines.Select(l => {
@@ -469,13 +469,13 @@ public struct {ToPascalCase(propertyName)}Wrapper
                 var (typeName, toString) = GetTypeFromMatch(type, additonalTypes);
                 return (name, typeName, toString);
             }
-            return null as (string name, string type, bool toString)?;
+            return null as (string name, string type, Func<string, string>? transform)?;
         })
             .Where(x => x.HasValue)
-            .ToDictionary(x => x.Value.name, x => (x.Value.type, x.Value.toString));
+            .ToDictionary(x => x.Value.name, x => (x.Value.type, x.Value.transform));
         return GetVariables(value, messages, knownTypes, additonalTypes);
     }
-    private IEnumerable<(string name, string? type, bool toString)> GetVariables(SyntaxNode value, Dictionary<string, MessageTermBase> messages, Dictionary<string, (string typeName, bool toString)> knownTypes, Dictionary<string, string> additonalTypes) {
+    private IEnumerable<(string name, string? type, Func<string, string>? transform)> GetVariables(SyntaxNode value, Dictionary<string, MessageTermBase> messages, Dictionary<string, (string typeName, Func<string, string>? transform)> knownTypes, Dictionary<string, string> additonalTypes) {
         switch (value) {
             case Fluent.Net.Ast.MessageTermBase messageTerm:
 
@@ -488,7 +488,7 @@ public struct {ToPascalCase(propertyName)}Wrapper
                     .Select(original => {
 
                         if (knownTypes.TryGetValue(original.name, out var type)) {
-                            return (original.name, type.typeName, type.toString);
+                            return (original.name, type.typeName, type.transform);
                         } else {
                             return original;
                         }
@@ -502,9 +502,9 @@ public struct {ToPascalCase(propertyName)}Wrapper
                 return GetVariables(placeable.Expression, messages, knownTypes, additonalTypes);
             case VariableReference variableReference:
                 if (knownTypes.TryGetValue(variableReference.Id.Name, out var type)) {
-                    return [(variableReference.Id.Name, type.typeName, type.toString)];
+                    return [(variableReference.Id.Name, type.typeName, type.transform)];
                 } else {
-                    return [(variableReference.Id.Name, null, false)];
+                    return [(variableReference.Id.Name, null, null)];
                 }
             case SelectExpression selectExpression:
                 return GetVariables(selectExpression.Selector, messages, knownTypes, additonalTypes)
