@@ -343,75 +343,84 @@ using Fluent.Net;
                 return (typeof(bool).FullName, str=>$"{str}.ToString()");
 
             case "datetime":
-                return (typeof(DateTime).FullName, null);
+                additonalTypes[typeof(DateTime).FullName] = """
+                public class DateTimeConverter : FluentDateTime {
+                    private readonly DateTime dateTime;
+                    public DateTimeConverter(DateTime dateTime) : base(dateTime) {
+                        this.dateTime = dateTime;
+                    }
+                    public override string Format(MessageContext ctx) {
+                        return dateTime.ToString(ctx.Culture);
+                    }
+                    public override bool Match(MessageContext ctx, object obj) {
+                        if (base.Match(ctx, obj)) {
+                            return true;
+                        } else if (obj is DateTimeConverter) {
+                            return ((DateTimeConverter)obj).dateTime == dateTime;
+                        }
+                        return false;
+                    }
+                }
+                """;
+
+
+                return (typeof(DateTime).FullName, str => $"new Fluent.DateTimeOffsetConverter({str})");
             
             
             case "datetimeoffset":
                 additonalTypes[typeof(DateTimeOffset).FullName] = """
-                    public struct DateTimeOffsetConverter : IFluentType {
-                        string IFluentType.Value { get; set; } = "";
-
-                        public readonly DateTimeOffset date;
-                        public DateTimeOffsetConverter(DateTimeOffset date) {
-                            this.date = date;
-                            ((IFluentType)this).Value = date.ToString();
+                    public class DateTimeOffsetConverter : FluentType {
+                        private readonly DateTimeOffset dateTimeOffset;
+                        public DateTimeOffsetConverter(DateTimeOffset dateTimeOffset) : base(dateTimeOffset.ToString("o")) {
+                            this.dateTimeOffset = dateTimeOffset;
                         }
-                        string IFluentType.Format(MessageContext ctx) {
-                            return date.ToString(ctx.Culture);
+                        public override string Format(MessageContext ctx) {
+                            return dateTimeOffset.ToString(ctx.Culture);
                         }
-                        bool IFluentType.Match(MessageContext ctx, object obj) {
+                        public override bool Match(MessageContext ctx, object obj) {
                             if (obj is DateTimeOffsetConverter) {
-                                return ((DateTimeOffsetConverter)obj).date == date;
+                                return ((DateTimeOffsetConverter)obj).dateTimeOffset == dateTimeOffset;
                             }
                             return false;
                         }
                     }
-                    
                     """;
 
                 return (typeof(DateTimeOffset).FullName, str => $"new Fluent.DateTimeOffsetConverter({str})");
 
             case "time":
                 additonalTypes["System.TimeOnly"] = """
-                    public struct TimeConverter : IFluentType {
-                        string IFluentType.Value { get; set; } = "";
-
-                        public readonly TimeOnly time;
-                        public TimeConverter(TimeOnly time) {
+                    public class TimeConverter : FluentType {
+                        private readonly TimeOnly time;
+                        public TimeConverter(TimeOnly time) : base(time.ToString("o")) {
                             this.time = time;
                             ((IFluentType)this).Value = time.ToString();
                         }
-                        string IFluentType.Format(MessageContext ctx) {
+                        public override string Format(MessageContext ctx) {
                             return time.ToString(ctx.Culture);
                         }
-                        bool IFluentType.Match(MessageContext ctx, object obj) {
+                        public override bool Match(MessageContext ctx, object obj) {
                             if (obj is TimeConverter) {
                                 return ((TimeConverter)obj).time == time;
                             }
                             return false;
                         }
                     }
-                    
                     """;
                 return ("System.TimeOnly", str=>$"new Fluent.TimeConverter({str})");
 
             case "date":
                 additonalTypes["System.DateOnly"] = """
-                    public struct DateConverter : IFluentType {
-                        string IFluentType.Value { get; set; } = "";
-
+                    public class DateConverter : FluentType {
                         public readonly DateOnly date;
-                        public DateConverter(DateOnly date) {
+                        public DateConverter(DateOnly date) : base(date.ToString("o")) {
                             this.date = date;
-                            ((IFluentType)this).Value = date.ToString();
                         }
-
-
-                        string IFluentType.Format(MessageContext ctx) {
+                        public override string Format(MessageContext ctx) {
                             return date.ToString(ctx.Culture);
                         }
 
-                        bool IFluentType.Match(MessageContext ctx, object obj) {
+                        public override bool Match(MessageContext ctx, object obj) {
                             if (obj is DateConverter) {
                                 return ((DateConverter)obj).date == date;
                             }
