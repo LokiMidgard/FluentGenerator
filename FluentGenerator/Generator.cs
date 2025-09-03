@@ -304,7 +304,7 @@ using Fluent.Net;
     }
 
 
-    private static (string type, bool toString) GetTypeFromMatch(string t, Dictionary<string, string> additonalTypes) {
+    private static (string type, Func<string,string>? transform) GetTypeFromMatch(string t, Dictionary<string, string> additonalTypes) {
         if (t is null)
             return default;
         if (t.Contains("|")) {
@@ -315,44 +315,89 @@ using Fluent.Net;
             additonalTypes[enumName] = $"public enum {enumName} {{ {string.Join(", ", enumValues)} }}";
 
 
-            return (enumName, true);
+            return (enumName, str => $"{str}.ToString()");
 
         }
         switch (t.ToLower()) {
             case "string":
             case "text":
-                return (typeof(string).FullName, false);
+                return (typeof(string).FullName, null);
 
             case "number":
-                return (typeof(double).FullName, false);
+                return (typeof(double).FullName, null);
 
             case "int":
-                return (typeof(int).FullName, false);
+                return (typeof(int).FullName, null);
 
             case "float":
-                return (typeof(float).FullName, false);
+                return (typeof(float).FullName, null);
 
             case "double":
-                return (typeof(double).FullName, false);
+                return (typeof(double).FullName, null);
 
             case "long":
-                return (typeof(long).FullName, false);
+                return (typeof(long).FullName, null);
 
             case "bool":
             case "boolean":
-                return (typeof(bool).FullName, true);
+                return (typeof(bool).FullName, str=>$"{str}.ToString()");
 
             case "datetime":
-                return (typeof(DateTime).FullName, false);
+                return (typeof(DateTime).FullName, null);
 
             case "time":
-                return ("System.TimeOnly", false);
+                additonalTypes["System.TimeOnly"] = """
+                    public struct TimeConverter : IFluentType {
+                        string IFluentType.Value { get; set; } = "";
+
+                        private TimeOnly time;
+                        public TimeConverter(TimeOnly time) {
+                            this.time = time;
+                            ((IFluentType)this).Value = time.ToString();
+                        }
+                        string IFluentType.Format(MessageContext ctx) {
+                            return time.ToString(ctx.Culture);
+                        }
+                        bool IFluentType.Match(MessageContext ctx, object obj) {
+                            if (obj is TimeConverter) {
+                                return ((TimeConverter)obj).time == time;
+                            }
+                            return false;
+                        }
+                    }
+                    
+                    """;
+                return ("System.TimeOnly", str=>$"new Fluent.TimeConverter({str})");
 
             case "date":
-                return ("System.DateOnly", false);
+                additonalTypes["System.DateOnly"] = """
+                    public struct DateConverter : IFluentType {
+                        string IFluentType.Value { get; set; } = "";
+
+                        private DateOnly date;
+                        public DateConverter(DateOnly date) {
+                            this.date = date;
+                            ((IFluentType)this).Value = date.ToString();
+                        }
+
+
+                        string IFluentType.Format(MessageContext ctx) {
+                            return date.ToString(ctx.Culture);
+                        }
+
+                        bool IFluentType.Match(MessageContext ctx, object obj) {
+                            if (obj is DateConverter) {
+                                return ((DateConverter)obj).date == date;
+                            }
+                            return false;
+                        }
+                    }
+                    """;
+
+                return ("System.DateOnly", str=>$"new Fluent.DateConverter({str})");
 
             default:
-                return (t, false);
+                return (t, str => $"{str}.ToString()");
         }
 
     }
