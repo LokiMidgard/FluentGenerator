@@ -345,7 +345,7 @@ using Fluent.Net;
             case "datetime":
                 additonalTypes[typeof(DateTime).FullName] = """
                 public class DateTimeConverter : FluentDateTime {
-                    private readonly DateTime dateTime;
+                    public readonly DateTime dateTime;
                     public DateTimeConverter(DateTime dateTime) : base(dateTime) {
                         this.dateTime = dateTime;
                     }
@@ -370,7 +370,7 @@ using Fluent.Net;
             case "datetimeoffset":
                 additonalTypes[typeof(DateTimeOffset).FullName] = """
                     public class DateTimeOffsetConverter : FluentType {
-                        private readonly DateTimeOffset dateTimeOffset;
+                        public readonly DateTimeOffset dateTimeOffset;
                         public DateTimeOffsetConverter(DateTimeOffset dateTimeOffset) : base(dateTimeOffset.ToString("o")) {
                             this.dateTimeOffset = dateTimeOffset;
                         }
@@ -391,7 +391,7 @@ using Fluent.Net;
             case "time":
                 additonalTypes["System.TimeOnly"] = """
                     public class TimeConverter : FluentType {
-                        private readonly TimeOnly time;
+                        public readonly TimeOnly time;
                         public TimeConverter(TimeOnly time) : base(time.ToString("o")) {
                             this.time = time;
                             ((IFluentType)this).Value = time.ToString();
